@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 IMG_RES = [153, 102]
 
-class LinearNet(nn.Module):
+class Net(nn.Module):
     def __init__(self, img_size):
         global IMG_RES
         super(Net, self).__init__()

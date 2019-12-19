@@ -3,8 +3,8 @@ import os
 import numpy
 from PIL import Image
 
-# from transform import Transform
-from gatherer.transform import Transform
+from transform import Transform
+# from gatherer.transform import Transform
 from torch.utils.data import Dataset
 
 IMG_PATH = "data/"
