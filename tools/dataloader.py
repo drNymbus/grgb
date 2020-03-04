@@ -3,21 +3,22 @@ import os
 import numpy
 from PIL import Image
 
-from transform import Transform
-# from gatherer.transform import Transform
 from torch.utils.data import Dataset
 
-IMG_PATH = "data/"
-JSON_PATH = "data/json/"
+from tools.transform import Transform
+
+IMG_RES = [153, 102]
+IMG_PATH = "data/pictures"
+# JSON_PATH = "data/json/urls"
 
 class DataLoader(Dataset):
     def __init__(self, path, transform=False, dim=None):
-        self.root = path + "pictures/"
-        self.size = [153, 102]
+        self.root = path
+        self.size = IMG_RES
         if (dim is not None):
-            self.root = path + (str(dim[0]) + 'x' + str(dim[1])) + '/'
+            # self.root = path + (str(dim[0]) + 'x' + str(dim[1])) + '/'
             self.size = dim
-        print(self.root, self.size)
+        # print(self.root, self.size)
         self.dirs = []
         self.files = {}
 
@@ -54,14 +55,16 @@ class DataLoader(Dataset):
             self.item["data"] = numpy.asarray(img)
             self.item["label"] = numpy.asarray(gray)
             self.item["path"] = self.pathname
+            self.item["index"] = self.index
         else:
-            self.item = self.transform.get_item(path)
+            self.item = self.transform.get_item(path, self.index)
         return self
 
     def free_image(self):
         del self.item["data"]
         del self.item["label"]
         del self.item["path"]
+        del self.item["index"]
         self.pathname = None
         return self
 
@@ -100,9 +103,9 @@ class DataLoader(Dataset):
     def get_img_size(self):
         return self.size
 
-    def save_resize(self, w, h):
+    def save_resize(self, w, h, out=None):
         if (self.transform is not None):
-            path = "data/" + str(w) + 'x' + str(h) + '/'
+            path = self.root + '_' + str(w) + 'x' + str(h) + '/'
             try:
                 os.mkdir(path)
                 for dir in self.dirs:
@@ -121,8 +124,9 @@ class DataLoader(Dataset):
         return self
 
 if __name__ == "__main__":
-    size = [int(sys.argv[1]), int(sys.argv[2])]
-    data = DataLoader(IMG_PATH, transform=True)
-    data.save_resize(size[0], size[1])
-    s = data.get_img_size()
-    print(s)
+    # size = [int(sys.argv[1]), int(sys.argv[2])]
+    # data = DataLoader(IMG_PATH, transform=True)
+    # data.save_resize(size[0], size[1])
+    # s = data.get_img_size()
+    # print(s)
+    pass
