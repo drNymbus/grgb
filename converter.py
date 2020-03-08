@@ -6,54 +6,85 @@ import torch.nn.functional as F
 import torch.optim as optim
 from PIL import Image
 
-from neural.net import *
-from neural.train import *
-from tools.dataloader import *
-from tools.transform import *
+import neural.net as nnet
+import neural.train as train
+import tools.dataloader as dataloader
 
 def usage():
     print("Voici les commandes disponibles : ")
     print("  ~$ resize width height option=<value>")
     print("\t - path : the dataset to resize, otherwise resize \"data/pictures/\"")
     print("\t - out : the output folder for the resized images")
-    print("  ~$ train option=<value> . . .")
-    print("    * si type ou path n'est pas defini un model lineaire sera cree *")
-    print("    * si l'option save n'est pas defini le model sera sauve dans le fichier \"model\" *")
-    print("\t - type : create a new neural net with the desired model (linear|conv|unet)")
-    print("\t - model : trains an existing model, type should be specified in this case")
-    print("\t - save : the path to save the model after training")
+    print("  ~$ train res=48x48 trainset=data/paysage_48x48/ option=<value> . . .")
+    print("\t - trainset : the path to the training data, the res option should be defined, default : \"data/paysage_48x48/\"")
+    print("\t- res : the resolution of the pictures (ex:res=32x32), default : 48x48")
+    print("\t - save : the path to save the model after training, default : \"model/net.pth\"")
+    print("\t - model : trains an existing model")
     print("\t - epoch : the number of epochs to train the model")
-    print("\t - res : the resolution of the pictures (ex:res=32x32)")
-    print("\t - trainset : the path to the training data, the res option should be defined")
-    print("\t              and data should be organized as so:")
-    print("\t\t trainset")
-    print("\t\t    └ mini-batch0")
-    print("\t\t        └ pic0")
-    print("\t\t        ├ pic1")
-    print("\t\t        ├ ...")
-    print("\t\t    └ mini-batch1")
-    print("\t\t        └ pic0")
-    print("\t\t        ├ pic1")
-    print("\t\t        ├ ...")
-    print("\t\t    └ ...")
     print("\t - cuda : a boolean to enable or disable GPU (ex: cuda=True | cuda=False)")
-    print("  ~$ convert path/to/file.png (a complete folder could be given too)")
+    print("  ~$ convert path/to/file.png (a complete folder could be given too) option=<value> ")
+    print("\t - model : the model to load to convert your picture(s)")
+    print("\t - save : the path to save the converted pictures, otherwise saves them in the same folder as the original")
+    print("\t - view : show the result before saving")
 
 
-def training(type, img_res=IMG_RES, img_path=IMG_PATH, epoch=1, model=None, save="model/net.pth", cuda=True):
-    ultra_net = UltraNet(type, img_size, model)
-    net = ultra_net.get_net()
+def training(img_res=dataloader.IMG_RES, img_path=dataloader.IMG_PATH, epoch=1, model=None, save="model/net.pth", cuda=True):
+    print("begin process...")
+    # net = ultra_net.get_net()
+    # ultra_net = nnet.UltraNet(type, img_res, model) #loading model
 
-    trainset = DataLoader(img_path, transform=True, dim=img_res)
-    train(net, epoch, trainset, cuda=cuda)
+    net = nnet.NetConv(img_res)
+    if model is not None:
+        net.load_state_dict(torch.load(path))
 
-    torch.save(net.state_dict(), save)
+    dataset = dataloader.Dataloader(img_path, test_per=10, mode="train") #dataset
+    print("train : %d pictures" % (len(dataset)))
+    # trains the model, plotting the loss over the epochs at the end
+    train.train(net, epoch, dataset, cuda)
 
-def resize(w, h, img=IMG_PATH, out=None):
+    dataset.set_mode("test")
+    print("test : %d pictures" % (len(dataset)))
+    train.test(net, dataset, cuda) # test the model accuracy
+
+    torch.save(net.state_dict(), save) #save the model in save path parameter
+
+def resize(w, h, img_path=dataloader.IMG_PATH, out=None):
+    print("begin process...")
     size = [w, h]
-    data = DataLoader(img, transform=True)
-    data.save_resize(size[0], size[1], out)
-    s = data.get_img_size()
+    data = dataloader.Dataloader(img_path) #the data to be resized
+
+    if out is None:
+        out = img_path[:len(img_path)-1] + '_' + str(w) + 'x' + str(h) + '/'
+        try:
+            os.mkdir(out)
+        except Exception as e:
+            pass
+    for i in range(len(data)):
+        filename = data[i]
+
+        img = data.resize_image(img_path + filename, (w,h))
+        img.save(out + filename, "PNG")
+
+        if i%100 == 99:
+            print("[%d / %d] %s" % (i, len(data), filename))
+
+def convert(path, model="model/net.pth", save=None, view=False):
+    print("begin process...")
+    net = nnet.NetConv(dataloader.IMG_RES)
+    if model is not None:
+        net.load_state_dict(torch.load(model))
+
+    imgs = dataloader.Dataloader(path, transform=True, dim=dataloader.IMG_RES) #dataset
+    for i, item in enumerate(imgs):
+        data = item["data"]
+        data = torch.tensor(data, dtype=torch.float32)
+        data = data.reshape(-1)
+        img = train.convert(net, data, view)
+        break
+
+    if save is not None:
+        img.save(save, "PNG")
+
 
 if __name__ == "__main__":
     argc = len(sys.argv)
@@ -65,6 +96,7 @@ if __name__ == "__main__":
         usage()
 
     elif sys.argv[1] == "resize":
+        print("resize... \n" + str(sys.argv))
         if argc < 4 :
             usage()
             exit()
@@ -82,27 +114,48 @@ if __name__ == "__main__":
                 opt, val = option.split("=")[0], option.split("=")[1]
 
                 if opt == "path":
-                    IMG_PATH = val
+                    dataloader.IMG_PATH = val
 
                 if opt == "out":
                     out = val
 
-            resize(w,h, IMG_PATH, out)
+            resize(w, h, dataloader.IMG_PATH, out)
 
     elif sys.argv[1] == "convert" :
-        pass
+        print("convert... \n" + str(sys.argv))
+        if argc < 3 :
+            usage()
+            exit()
+        else :
+
+            path = sys.argv[2]
+            model = "model/net.pth"
+            save = None
+            view = False
+
+            options = sys.argv[3:]
+            for option in options:
+                opt, val = option.split("=")[0], option.split("=")[1]
+
+                if opt == "model":
+                    model = val
+                if opt == "save":
+                    save = val
+                if opt == "view":
+                    view = bool(val)
+
+            convert(path, model, save, view)
 
     elif sys.argv[1] == "train" :
+        print("training... \n" + str(sys.argv))
+
         if argc < 2 :
             usage()
             exit()
         else :
-            IMG_RES[0], IMG_RES[1] = 32, 32
-            IMG_PATH = "data/pictures_" + str(IMG_RES[0]) + "x" + str(IMG_RES[1]) + "/"
 
-            net_type = "linear"
             model = None
-            epoch = 1
+            e = 1
             save = "model/net.pth"
             cuda = True
 
@@ -111,19 +164,17 @@ if __name__ == "__main__":
                 opt, val = option.split("=")[0], option.split("=")[1]
 
                 if opt == "epoch" :
-                    epoch = int(val)
+                    e = int(val)
 
                 elif opt == "save" :
                     save = val
-
-                elif opt == "type" :
-                    net_type = val
 
                 elif opt == "model" :
                     model = val
 
                 elif opt == "trainset" :
-                    IMG_PATH = val
+                    print('toto', val)
+                    dataloader.IMG_PATH = val
 
                 elif opt == "cuda" :
                     cuda = bool(val)
@@ -131,17 +182,21 @@ if __name__ == "__main__":
                 elif opt == "res" :
                     try :
                         width, height = val.split("x")[0], val.split("x")[1]
-                        IMG_RES[0], IMG_RES[1] = int(width), int(height)
+                        dataloader.IMG_RES[0], dataloader.IMG_RES[1] = int(width), int(height)
                     except Exception as e :
                         print(e)
                         raise e
 
             print("\nPARAMS : ")
-            print("  RES", IMG_RES)
-            print("  PATH", IMG_PATH)
-            print("  EPOCH", epoch)
+            print("  RES", dataloader.IMG_RES)
+            print("  PATH", dataloader.IMG_PATH)
+            print("  EPOCH", e)
+            print("  MODEL", model)
             print("  SAVE", save)
             print("  CUDA", cuda)
             print("")
 
-            training(type, epoch=epoch, model=model, save=save, cuda=cuda)
+            training(dataloader.IMG_RES, dataloader.IMG_PATH, epoch=e, model=model, save=save, cuda=cuda)
+
+
+    print("done...")
