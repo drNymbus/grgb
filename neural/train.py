@@ -35,12 +35,12 @@ def view_data(arr, mode):
 
 def train(net, epochs, trainloader, cuda=False):
     # criterion = nn.CrossEntropyLoss()
-    criterion = nn.MSELoss(reduction="sum")
+    criterion = nn.MSELoss()
     # criterion = nn.KLDivLoss()
     # criterion = nn.NLLLoss()
 
-    # optimizer = optim.ASGD(net.parameters(), lr=0.00001, lambd=0.0001, alpha=0.5)
-    optimizer = optim.Adam(net.parameters(), lr=0.00001)
+    optimizer = optim.ASGD(net.parameters(), lr=0.0000001)
+    # optimizer = optim.Adam(net.parameters(), lr=0.0000001)
 
     if cuda:
         criterion.cuda()

@@ -162,24 +162,26 @@ if __name__ == "__main__":
             options = sys.argv[2:]
             for option in options:
                 opt, val = option.split("=")[0], option.split("=")[1]
-
+                print(opt, val)
                 if opt == "epoch" :
                     e = int(val)
 
-                elif opt == "save" :
+                if opt == "save" :
                     save = val
 
-                elif opt == "model" :
+                if opt == "model" :
                     model = val
 
-                elif opt == "trainset" :
-                    print('toto', val)
+                if opt == "trainset" :
                     dataloader.IMG_PATH = val
 
-                elif opt == "cuda" :
-                    cuda = bool(val)
+                if opt == "cuda" :
+                    if (val.lower() == "true"):
+                        cuda = True
+                    elif (val.lower() == "false"):
+                        cuda = False
 
-                elif opt == "res" :
+                if opt == "res" :
                     try :
                         width, height = val.split("x")[0], val.split("x")[1]
                         dataloader.IMG_RES[0], dataloader.IMG_RES[1] = int(width), int(height)
