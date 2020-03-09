@@ -37,7 +37,7 @@ def training(img_res=dataloader.IMG_RES, img_path=dataloader.IMG_PATH, epoch=1, 
     if model is not None:
         net.load_state_dict(torch.load(path))
 
-    dataset = dataloader.Dataloader(img_path, test_per=10, mode="train") #dataset
+    dataset = dataloader.Dataloader(img_path, test_per=5, mode="train") #dataset
     print("train : %d pictures" % (len(dataset)))
     # trains the model, plotting the loss over the epochs at the end
     train.train(net, epoch, dataset, cuda)

@@ -39,8 +39,8 @@ def train(net, epochs, trainloader, cuda=False):
     # criterion = nn.KLDivLoss()
     # criterion = nn.NLLLoss()
 
-    optimizer = optim.ASGD(net.parameters(), lr=0.0000001)
-    # optimizer = optim.Adam(net.parameters(), lr=0.0000001)
+    # optimizer = optim.ASGD(net.parameters(), lr=0.0000001)
+    optimizer = optim.Adam(net.parameters(), lr=0.00001)
 
     if cuda:
         criterion.cuda()
