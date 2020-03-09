@@ -7,7 +7,9 @@ from PIL import Image
 from torch.utils.data import Dataset
 
 IMG_RES = [48,48]
-IMG_PATH = "data/paysage_48x48/"
+IMG_PATH = None
+IMG_PATH_PAYSAGE = "data/paysage_48x48/"
+IMG_PATH_NATURE = "data/nature_48x48/"
 
 class Dataloader(object):
     def __init__(self, path, test_per=0, mode=None):#, gray=False):
@@ -16,6 +18,7 @@ class Dataloader(object):
         for _,_,files in os.walk(self.path):
             for file in files:
                 self.files.append(file)
+        # self.files = self.files[:len(self.files)//150]
 
         self.transform = Transform()
         # self.gray = gray # determine if pictures are in grayscale or not
@@ -26,9 +29,14 @@ class Dataloader(object):
         self.trainset= self.files[i:]
         self.testset = self.files[:i]
 
+    def get_path(self):
+        return self.path
+
     def set_mode(self, mode):
         if (mode == "train" or mode == "test"):
             self.mode = mode
+        else:
+            self.mode = "none"
 
     def __len__(self):
         if self.mode == "train":
@@ -49,37 +57,51 @@ class Dataloader(object):
         img = self.transform.resize(img, size)
         return img
 
-    # def get_len_files(self):
-    #     ''' return the total length of files '''
-    #     return len(self.files)
-
-    # def get_filename(self, i):
-    #     ''' return filename self.files at index i '''
-    #     return self.files[i]
-
     def __getitem__(self, i):
         if self.mode == "train":
-            img = self.load_image(self.path + self.trainset[i])
+            path = self.path + self.trainset[i] if self.path is not None else self.trainset[i]
+            img = self.load_image(path)
             gray = self.transform.grayscale(img)
 
             item = {}
-            item["path"] = self.path + self.trainset[i]
+            item["path"] = self.path + self.trainset[i] if self.path is not None else self.trainset[i]
             item["data"] = numpy.asarray(gray)
             item["label"] = numpy.asarray(img)
             return item
 
         elif self.mode == "test":
-            img = self.load_image(self.path + self.testset[i])
+            path = self.path + self.testset[i] if self.path is not None else self.testset[i]
+            img = self.load_image(path)
             gray = self.transform.grayscale(img)
 
             item = {}
-            item["path"] = self.path + self.testset[i]
+            item["path"] = self.path + self.trainset[i] if self.path is not None else self.trainset[i]
             item["data"] = numpy.asarray(gray)
             item["label"] = numpy.asarray(img)
             return item
 
         else:
             return self.files[i]
+
+    def merge(self, data, test_per=0):
+        self.set_mode("none")
+        data.set_mode("none")
+        for i in range(len(self)):
+            p = self.path + self.files[i]
+            self.files[i] = p
+        self.path = None
+
+        for i in range(len(data)):
+            p = data.get_path() + data[i]
+            self.files.append(p)
+
+        random.shuffle(self.files)
+        i = test_per * len(self.files) // 100
+        self.trainset= self.files[i:]
+        self.testset = self.files[:i]
+
+        return self
+
 
 class Transform(object):
     def __init__(self):
@@ -100,3 +122,11 @@ class Transform(object):
         except Exception as e:
             print(e)
             raise e
+
+def set_img_path(path):
+    global IMG_PATH
+    IMG_PATH = path
+
+def set_img_res(res):
+    global IMG_RES
+    IMG_RES = res

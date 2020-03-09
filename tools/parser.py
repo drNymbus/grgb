@@ -130,7 +130,7 @@ if __name__ == "__main__":
             if argc < 4:
                 usage()
             else:
-                url.replace("phrase=paysage", sys.argv[3])
+                url = url.replace("paysage", sys.argv[3])
                 JSON_PATH = sys.argv[2]
                 print("URL ===> %s" % url)
                 try:

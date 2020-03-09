@@ -1,4 +1,5 @@
 import sys
+import json
 import numpy
 import sklearn.metrics
 import torch
@@ -33,7 +34,11 @@ def view_data(arr, mode):
     img = Image.fromarray(arr, mode)
     return img.show()
 
-def train(net, epochs, trainloader, cuda=False):
+def train(net, epochs, trainloader, cuda=False, plot=False):
+    JSON_PATH = "data/json/loss.json"
+    with open(JSON_PATH, "w+") as f:
+        json.dump({}, f)
+
     # criterion = nn.CrossEntropyLoss()
     criterion = nn.MSELoss()
     # criterion = nn.KLDivLoss()
@@ -49,7 +54,7 @@ def train(net, epochs, trainloader, cuda=False):
     e_losses = []
     for epoch in range(epochs): # loop over the dataset multiple times
 
-        losses = 0
+        losses = []
         running_loss = 0.0
         for i, item in enumerate(trainloader, 0):
 
@@ -82,20 +87,43 @@ def train(net, epochs, trainloader, cuda=False):
             optimizer.step()
 
             running_loss += loss.item()
-            losses += running_loss
+            losses.append(running_loss)
 
             if i % 300 == 299:    # print every 300 mini-batches
                 print('[e: %d, i: %d] loss: %.3f' %
                       (epoch + 1, i + 1, running_loss / 50))
                 # running_loss = 0.0
 
+        if plot:
+            plt.plot(losses, label="running loss for epoch(%d)"%(epoch+1))
+            plt.show()
 
-        e_losses.append(losses / len(trainloader))
-        print("\n\tAVG, e=%d: %.3f\n" % (epoch+1, losses / len(trainloader)))
-        print("\n#######################################################################\n")
+        avg = 0 # compute average loss over the epoch
+        for loss in losses:
+            avg += loss
+        avg = avg / len(trainloader)
+        e_losses.append(avg)
 
-    plt.plot(e_losses, label="epoch (avg) running loss")
-    plt.show()
+        # loads data in data/json/loss.json
+        all_data = {}
+        try:
+            with open(JSON_PATH, 'r') as f:
+                all_data = json.loads(f.read())
+        except Exception as e:
+            print("/!\\ Warning /!\\ " + str(e))
+            pass
+
+        # append the loss data of the epoch in data/json/loss.json
+        all_data[epoch+1] = {"average" : avg, "losses" : losses}
+        with open(JSON_PATH, "w+") as f:
+            json.dump(all_data, f)
+
+        print("\n\t(AVERAGE) e=%d: loss=%.3f\n" % (epoch+1, avg))
+        print("#########################################################")
+
+    if plot:
+        plt.plot(e_losses, label="epoch (average) running loss")
+        plt.show()
 
 def test(net, testloader, cuda=False):
     net.eval()
@@ -138,7 +166,7 @@ def test(net, testloader, cuda=False):
     maxe = maxe / len(testloader)
     # print("Accuracy ==> [%d] on %d images" % (accuracy*100, len(testloader)))
     # print("Jaccard ==> [%d] on %d images" % (jaccard*100, len(testloader)))
-    print("MSE ==> [%.5f] on %d images" % (mse, len(testloader)))
+    print("MEAN_SQUARED_ERROR ==> [%.5f] on %d images" % (mse, len(testloader)))
     print("MAX_ERROR ==> [%.5f] on %d images" % (maxe, len(testloader)))
 
 def convert(net, input, view=False):

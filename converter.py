@@ -22,34 +22,47 @@ def usage():
     print("\t - model : trains an existing model")
     print("\t - epoch : the number of epochs to train the model")
     print("\t - cuda : a boolean to enable or disable GPU (ex: cuda=True | cuda=False)")
+    print("\t - plot : a boolean to enable or disable a graphic representation of the loss for each epoch,")
+    print("\t          then a representation of an average of each epoch (ex: plot=False | plot = True)")
     print("  ~$ convert path/to/file.png (a complete folder could be given too) option=<value> ")
     print("\t - model : the model to load to convert your picture(s)")
     print("\t - save : the path to save the converted pictures, otherwise saves them in the same folder as the original")
     print("\t - view : show the result before saving")
 
 
-def training(img_res=dataloader.IMG_RES, img_path=dataloader.IMG_PATH, epoch=1, model=None, save="model/net.pth", cuda=True):
-    print("begin process...")
+def training(epoch=1, model=None, save="model/net.pth", cuda=True, plot=False):
+    print("begin process...\n")
     # net = ultra_net.get_net()
     # ultra_net = nnet.UltraNet(type, img_res, model) #loading model
 
-    net = nnet.NetConv(img_res)
+    net = nnet.NetConv(dataloader.IMG_RES)
     if model is not None:
-        net.load_state_dict(torch.load(path))
+        print("loading : " + model + " . . .")
+        net.load_state_dict(torch.load(model))
 
-    dataset = dataloader.Dataloader(img_path, test_per=5, mode="train") #dataset
-    print("train : %d pictures" % (len(dataset)))
+    dataset = None
+    if dataloader.IMG_PATH is not None:
+        dataloader.set_img_path(dataloader.IMG_PATH)
+        dataset = dataloader.Dataloader(dataloader.IMG_PATH, test_per=5) #dataset
+    else:
+        data_paysage = dataloader.Dataloader(dataloader.IMG_PATH_PAYSAGE)
+        data_nature = dataloader.Dataloader(dataloader.IMG_PATH_NATURE)
+        dataset = data_paysage.merge(data_nature, test_per=5)
+    print("---- Dataset total length : %d pictures ----\n" % (len(dataset)))
+
     # trains the model, plotting the loss over the epochs at the end
-    train.train(net, epoch, dataset, cuda)
+    dataset.set_mode("train")
+    print("train : %d pictures\n" % (len(dataset)))
+    train.train(net, epoch, dataset, cuda, plot)
 
     dataset.set_mode("test")
-    print("test : %d pictures" % (len(dataset)))
+    print("test : %d pictures\n" % (len(dataset)))
     train.test(net, dataset, cuda) # test the model accuracy
 
     torch.save(net.state_dict(), save) #save the model in save path parameter
 
 def resize(w, h, img_path=dataloader.IMG_PATH, out=None):
-    print("begin process...")
+    print("begin process...\n")
     size = [w, h]
     data = dataloader.Dataloader(img_path) #the data to be resized
 
@@ -69,7 +82,7 @@ def resize(w, h, img_path=dataloader.IMG_PATH, out=None):
             print("[%d / %d] %s" % (i, len(data), filename))
 
 def convert(path, model="model/net.pth", save=None, view=False):
-    print("begin process...")
+    print("begin process...\n")
     net = nnet.NetConv(dataloader.IMG_RES)
     if model is not None:
         net.load_state_dict(torch.load(model))
@@ -83,6 +96,7 @@ def convert(path, model="model/net.pth", save=None, view=False):
         break
 
     if save is not None:
+        print("saving " + save + " . . .")
         img.save(save, "PNG")
 
 
@@ -158,6 +172,7 @@ if __name__ == "__main__":
             e = 1
             save = "model/net.pth"
             cuda = True
+            plot = False
 
             options = sys.argv[2:]
             for option in options:
@@ -173,7 +188,13 @@ if __name__ == "__main__":
                     model = val
 
                 if opt == "trainset" :
-                    dataloader.IMG_PATH = val
+                    dataloader.set_img_path(val)
+
+                if opt == "plot":
+                    if (val.lower() == "true"):
+                        plot = True
+                    elif (val.lower() == "false"):
+                        plot = False
 
                 if opt == "cuda" :
                     if (val.lower() == "true"):
@@ -184,7 +205,7 @@ if __name__ == "__main__":
                 if opt == "res" :
                     try :
                         width, height = val.split("x")[0], val.split("x")[1]
-                        dataloader.IMG_RES[0], dataloader.IMG_RES[1] = int(width), int(height)
+                        dataloader.set_img_res([width,height])
                     except Exception as e :
                         print(e)
                         raise e
@@ -196,9 +217,9 @@ if __name__ == "__main__":
             print("  MODEL", model)
             print("  SAVE", save)
             print("  CUDA", cuda)
+            print("  PLOT", plot)
             print("")
 
-            training(dataloader.IMG_RES, dataloader.IMG_PATH, epoch=e, model=model, save=save, cuda=cuda)
-
+            training(epoch=e, model=model, save=save, cuda=cuda)
 
     print("done...")
